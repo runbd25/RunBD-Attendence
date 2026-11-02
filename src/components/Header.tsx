@@ -51,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-3 shrink-0">
           <div className="w-10 h-10 rounded-xl overflow-hidden bg-sky-500/10 border border-sky-400/30 flex items-center justify-center shadow-xs">
             <img
-              src="/assets/aistudio/WhatsApp_Image_2026-10-29_at_11.52.03_ee88581e.jpeg"
+              src="/assets/img/WhatsApp_Image_2026-10-29_at_11.52.03_ee88581e.jpeg"
               alt="Runbd Logo"
               className="w-full h-full object-cover"
             />

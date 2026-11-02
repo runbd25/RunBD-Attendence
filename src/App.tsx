@@ -382,7 +382,7 @@ export default function App() {
           <div className="flex items-center gap-2.5">
             <div className="w-6 h-6 rounded-lg overflow-hidden border border-sky-400/30">
               <img
-                src="/assets/aistudio/WhatsApp_Image_2026-10-29_at_11.52.03_ee88581e.jpeg"
+                src="/assets/img/WhatsApp_Image_2026-10-29_at_11.52.03_ee88581e.jpeg"
                 alt="Runbd Logo"
                 className="w-full h-full object-cover"
               />
