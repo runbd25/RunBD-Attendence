@@ -364,7 +364,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
                   setPasswordInput(e.target.value);
                   setAuthError('');
                 }}
-                placeholder="Enter password (default: admin123)"
+                placeholder="Enter password"
                 className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 pr-10 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
               />
               <button
@@ -389,9 +389,7 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
           </button>
 
           <div className="text-center pt-2">
-            <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono">
-              Default system password: <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">admin123</code>
-            </span>
+            
           </div>
         </form>
       </div>
