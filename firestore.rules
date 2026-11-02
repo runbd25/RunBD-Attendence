@@ -16,22 +16,20 @@ service cloud.firestore {
     }
 
     function isValidAttendanceRecord(data) {
-      return data.keys().hasAll(['id', 'date', 'employeeId', 'employeeName', 'checkInTime']) &&
-        data.keys().hasOnly(['id', 'slNo', 'date', 'employeeId', 'employeeName', 'department', 'checkInTime', 'checkInTimestamp', 'checkOutTime', 'checkOutTimestamp', 'location', 'workMode', 'lateStatus', 'lateMinutes', 'totalHours', 'syncedToSheet', 'notes', 'createdAt']) &&
+      return data.keys().hasAll(['id', 'date', 'employeeId', 'employeeName']) &&
         data.id is string && data.id.size() <= 128 &&
         data.date is string && data.date.size() <= 32 &&
         data.employeeId is string && data.employeeId.size() <= 64 &&
-        data.employeeName is string && data.employeeName.size() <= 128 &&
-        data.checkInTime is string && data.checkInTime.size() <= 32;
+        data.employeeName is string && data.employeeName.size() <= 128;
     }
 
     function isValidEmployeeProfile(data) {
-      return data.keys().hasAll(['id', 'name', 'department', 'role']) &&
-        data.keys().hasOnly(['id', 'name', 'department', 'role', 'avatarColor']) &&
+      return data.keys().hasAll(['id', 'name']) &&
         data.id is string && data.id.size() <= 64 &&
         data.name is string && data.name.size() <= 128 &&
-        data.department is string && data.department.size() <= 128 &&
-        data.role is string && data.role.size() <= 128;
+        (!data.keys().hasAny(['department']) || (data.department is string && data.department.size() <= 128)) &&
+        (!data.keys().hasAny(['role']) || (data.role is string && data.role.size() <= 128)) &&
+        (!data.keys().hasAny(['avatarColor']) || (data.avatarColor is string && data.avatarColor.size() <= 64));
     }
 
     match /{document=**} {
