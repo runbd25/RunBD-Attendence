@@ -37,6 +37,32 @@ export default function App() {
     }
   });
 
+  // Firebase Auth state & connection
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+
+  // Attendance Records state (synchronized with Firestore)
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+
+  // Employees state (synchronized with Firestore)
+  const [employees, setEmployees] = useState<EmployeeProfile[]>(DEFAULT_EMPLOYEES);
+
+  // Settings
+  const [officeStartTime, setOfficeStartTime] = useState<string>(() => {
+    return localStorage.getItem(STORAGE_KEY_OFFICE_START) || '09:30';
+  });
+
+  const [adminPassword, setAdminPassword] = useState<string>(() => {
+    return localStorage.getItem(STORAGE_KEY_ADMIN_PASSWORD) || 'admin123';
+  });
+
+  const [graceMinutes, setGraceMinutes] = useState<number>(() => {
+    return Number(localStorage.getItem(STORAGE_KEY_GRACE_MINS)) || 0;
+  });
+
+  // Toasts
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
   // Sync theme with HTML root class
   useEffect(() => {
     const root = document.documentElement;
@@ -56,27 +82,25 @@ export default function App() {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
-  // Firebase Auth state & connection
-  const [currentUser, setCurrentUser] = useState<any>(null);
-
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
         setCurrentUser(user);
+        setAuthLoading(false);
       } else {
-        signInAnonymously(auth).catch((err) => {
-          console.warn('Anonymous sign-in failed:', err);
-        });
+        signInAnonymously(auth)
+          .then((cred) => {
+            setCurrentUser(cred.user);
+            setAuthLoading(false);
+          })
+          .catch((err) => {
+            console.warn('Anonymous sign-in failed:', err);
+            setAuthLoading(false);
+          });
       }
     });
     return () => unsubscribeAuth();
   }, []);
-
-  // Attendance Records state (synchronized with Firestore)
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
-
-  // Employees state (synchronized with Firestore)
-  const [employees, setEmployees] = useState<EmployeeProfile[]>(DEFAULT_EMPLOYEES);
 
   // Sync Attendance Records from Firestore in real-time
   useEffect(() => {
@@ -129,22 +153,6 @@ export default function App() {
     );
     return () => unsubscribe();
   }, [currentUser]);
-
-  // Settings
-  const [officeStartTime, setOfficeStartTime] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY_OFFICE_START) || '09:30';
-  });
-
-  const [adminPassword, setAdminPassword] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY_ADMIN_PASSWORD) || 'admin123';
-  });
-
-  const [graceMinutes, setGraceMinutes] = useState<number>(() => {
-    return Number(localStorage.getItem(STORAGE_KEY_GRACE_MINS)) || 0;
-  });
-
-  // Toasts
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   const showToast = (
     title: string,
@@ -319,25 +327,30 @@ export default function App() {
   };
 
   const handleAddEmployee = async (emp: EmployeeProfile) => {
+    setEmployees((prev) => [...prev, emp]);
     try {
-      await setDoc(doc(db, 'employees', emp.id), emp);
+      await setDoc(doc(db, 'employees', emp.id), emp, { merge: true });
       showToast('Employee Added', `${emp.name} added to team roster.`, 'success');
     } catch (error) {
+      console.error('Failed to add employee:', error);
       handleFirestoreError(error, OperationType.WRITE, `employees/${emp.id}`);
     }
   };
 
   const handleUpdateEmployee = async (emp: EmployeeProfile) => {
+    setEmployees((prev) => prev.map((e) => (e.id === emp.id ? emp : e)));
     try {
-      await setDoc(doc(db, 'employees', emp.id), emp);
+      await setDoc(doc(db, 'employees', emp.id), emp, { merge: true });
       showToast('Employee Updated', `Profile for ${emp.name} updated.`, 'success');
     } catch (error) {
+      console.error('Failed to update employee:', error);
       handleFirestoreError(error, OperationType.WRITE, `employees/${emp.id}`);
     }
   };
 
   const handleDeleteEmployee = async (id: string) => {
     const target = employees.find((e) => e.id === id);
+    setEmployees((prev) => prev.filter((e) => e.id !== id));
     try {
       await deleteDoc(doc(db, 'employees', id));
       showToast('Employee Removed', `${target?.name || id} removed from directory.`, 'info');
