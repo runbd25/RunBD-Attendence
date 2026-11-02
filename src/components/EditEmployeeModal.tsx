@@ -32,8 +32,6 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
   onSave,
   isNew = false,
 }) => {
-  if (!isOpen) return null;
-
   const [name, setName] = useState<string>(employee?.name || '');
   const [id, setId] = useState<string>(employee?.id || '');
   const [department, setDepartment] = useState<string>(employee?.department || 'Call Center');
@@ -57,6 +55,8 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({
       setAvatarColor(AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]);
     }
   }, [employee, isOpen]);
+
+  if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

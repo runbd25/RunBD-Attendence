@@ -11,9 +11,8 @@ import { ManagerPortal } from './components/ManagerPortal';
 import { ToastContainer } from './components/ToastContainer';
 import { AttendanceRecord, ToastMessage, WorkMode, EmployeeProfile } from './types/attendance';
 import { DEFAULT_EMPLOYEES } from './data/mockData';
-import { db, auth, handleFirestoreError, OperationType } from './services/firebase';
+import { db, handleFirestoreError, OperationType } from './services/firebase';
 import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
-import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 
 const STORAGE_KEY_OFFICE_START = 'attendpulse_office_start_v1';
 const STORAGE_KEY_THEME = 'attendpulse_theme_v1';
@@ -36,10 +35,6 @@ export default function App() {
       return 'light';
     }
   });
-
-  // Firebase Auth state & connection
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [authLoading, setAuthLoading] = useState<boolean>(true);
 
   // Attendance Records state (synchronized with Firestore)
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -82,29 +77,8 @@ export default function App() {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
-  useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setCurrentUser(user);
-        setAuthLoading(false);
-      } else {
-        signInAnonymously(auth)
-          .then((cred) => {
-            setCurrentUser(cred.user);
-            setAuthLoading(false);
-          })
-          .catch((err) => {
-            console.warn('Anonymous sign-in failed:', err);
-            setAuthLoading(false);
-          });
-      }
-    });
-    return () => unsubscribeAuth();
-  }, []);
-
   // Sync Attendance Records from Firestore in real-time
   useEffect(() => {
-    if (!currentUser) return;
     const q = collection(db, 'attendanceRecords');
     const unsubscribe = onSnapshot(
       q,
@@ -121,11 +95,10 @@ export default function App() {
       }
     );
     return () => unsubscribe();
-  }, [currentUser]);
+  }, []);
 
   // Sync Employees from Firestore in real-time
   useEffect(() => {
-    if (!currentUser) return;
     const q = collection(db, 'employees');
     const unsubscribe = onSnapshot(
       q,
@@ -152,7 +125,7 @@ export default function App() {
       }
     );
     return () => unsubscribe();
-  }, [currentUser]);
+  }, []);
 
   const showToast = (
     title: string,

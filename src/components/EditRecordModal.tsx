@@ -31,21 +31,19 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
   officeStartTime,
   employees = [],
 }) => {
-  if (!isOpen || !record) return null;
-
-  const [date, setDate] = useState<string>(record.date);
-  const [employeeName, setEmployeeName] = useState<string>(record.employeeName);
-  const [employeeId, setEmployeeId] = useState<string>(record.employeeId);
-  const [department, setDepartment] = useState<string>(record.department);
-  const [checkInTime, setCheckInTime] = useState<string>(record.checkInTime);
-  const [checkOutTime, setCheckOutTime] = useState<string>(record.checkOutTime || '');
-  const [workMode, setWorkMode] = useState<WorkMode>(record.workMode);
-  const [location, setLocation] = useState<string>(record.location);
-  const [lateStatus, setLateStatus] = useState<LateStatus>(record.lateStatus);
-  const [lateMinutes, setLateMinutes] = useState<number>(record.lateMinutes);
-  const [totalHours, setTotalHours] = useState<string>(record.totalHours);
-  const [notes, setNotes] = useState<string>(record.notes || '');
-  const [syncedToSheet, setSyncedToSheet] = useState<boolean>(record.syncedToSheet);
+  const [date, setDate] = useState<string>(record?.date || '');
+  const [employeeName, setEmployeeName] = useState<string>(record?.employeeName || '');
+  const [employeeId, setEmployeeId] = useState<string>(record?.employeeId || '');
+  const [department, setDepartment] = useState<string>(record?.department || '');
+  const [checkInTime, setCheckInTime] = useState<string>(record?.checkInTime || '');
+  const [checkOutTime, setCheckOutTime] = useState<string>(record?.checkOutTime || '');
+  const [workMode, setWorkMode] = useState<WorkMode>(record?.workMode || 'Office');
+  const [location, setLocation] = useState<string>(record?.location || '');
+  const [lateStatus, setLateStatus] = useState<LateStatus>(record?.lateStatus || 'On-Time');
+  const [lateMinutes, setLateMinutes] = useState<number>(record?.lateMinutes || 0);
+  const [totalHours, setTotalHours] = useState<string>(record?.totalHours || '--');
+  const [notes, setNotes] = useState<string>(record?.notes || '');
+  const [syncedToSheet, setSyncedToSheet] = useState<boolean>(record?.syncedToSheet || false);
 
   // Sync state whenever record prop changes
   useEffect(() => {
@@ -65,6 +63,8 @@ export const EditRecordModal: React.FC<EditRecordModalProps> = ({
       setSyncedToSheet(record.syncedToSheet);
     }
   }, [record]);
+
+  if (!isOpen || !record) return null;
 
   // If user picks an employee from roster, auto-fill ID and department
   const handleSelectRosterEmployee = (empId: string) => {
