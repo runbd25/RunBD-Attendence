@@ -1,0 +1,6 @@
+{
+  "name": "Runbd Attendance - Smart Google Sheets Attendance System",
+  "description": "Full-stack attendance tracking system with Runbd branding, late arrival detection, Google Sheets database synchronization via Google Apps Script, and manager admin portal with analytics and CSV export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
