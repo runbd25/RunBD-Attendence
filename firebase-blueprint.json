@@ -1,0 +1,53 @@
+{
+  "entities": {
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Daily employee attendance record including check-in, check-out, location, and hours.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "slNo": { "type": "number" },
+        "date": { "type": "string", "maxLength": 32 },
+        "employeeId": { "type": "string", "maxLength": 64 },
+        "employeeName": { "type": "string", "maxLength": 128 },
+        "department": { "type": "string", "maxLength": 128 },
+        "checkInTime": { "type": "string", "maxLength": 32 },
+        "checkInTimestamp": { "type": "number" },
+        "checkOutTime": { "type": "string", "maxLength": 32 },
+        "checkOutTimestamp": { "type": "number" },
+        "location": { "type": "string", "maxLength": 256 },
+        "workMode": { "type": "string", "enum": ["Office", "Remote", "On-site", "Field Work"] },
+        "lateStatus": { "type": "string", "enum": ["On-Time", "Late"] },
+        "lateMinutes": { "type": "number" },
+        "totalHours": { "type": "string", "maxLength": 32 },
+        "syncedToSheet": { "type": "boolean" },
+        "notes": { "type": "string", "maxLength": 512 },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "date", "employeeId", "employeeName", "checkInTime"]
+    },
+    "EmployeeProfile": {
+      "title": "EmployeeProfile",
+      "description": "Employee profile information for the attendance system.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 128 },
+        "department": { "type": "string", "maxLength": 128 },
+        "role": { "type": "string", "maxLength": 128 },
+        "avatarColor": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "name", "department", "role"]
+    }
+  },
+  "firestore": {
+    "/attendanceRecords/{recordId}": {
+      "schema": { "$ref": "#/entities/AttendanceRecord" },
+      "description": "Collection of employee attendance records."
+    },
+    "/employees/{employeeId}": {
+      "schema": { "$ref": "#/entities/EmployeeProfile" },
+      "description": "Collection of employee profiles."
+    }
+  }
+}

@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function incoming() {
+      return request.resource.data;
+    }
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidAttendanceRecord(data) {
+      return data.keys().hasAll(['id', 'date', 'employeeId', 'employeeName', 'checkInTime']) &&
+        data.keys().hasOnly(['id', 'slNo', 'date', 'employeeId', 'employeeName', 'department', 'checkInTime', 'checkInTimestamp', 'checkOutTime', 'checkOutTimestamp', 'location', 'workMode', 'lateStatus', 'lateMinutes', 'totalHours', 'syncedToSheet', 'notes', 'createdAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.date is string && data.date.size() <= 32 &&
+        data.employeeId is string && data.employeeId.size() <= 64 &&
+        data.employeeName is string && data.employeeName.size() <= 128 &&
+        data.checkInTime is string && data.checkInTime.size() <= 32;
+    }
+
+    function isValidEmployeeProfile(data) {
+      return data.keys().hasAll(['id', 'name', 'department', 'role']) &&
+        data.keys().hasOnly(['id', 'name', 'department', 'role', 'avatarColor']) &&
+        data.id is string && data.id.size() <= 64 &&
+        data.name is string && data.name.size() <= 128 &&
+        data.department is string && data.department.size() <= 128 &&
+        data.role is string && data.role.size() <= 128;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /attendanceRecords/{recordId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(recordId) && isValidAttendanceRecord(incoming());
+      allow update: if isSignedIn() && isValidId(recordId) && isValidAttendanceRecord(incoming()) &&
+        incoming().id == existing().id;
+      allow delete: if isSignedIn();
+    }
+
+    match /employees/{employeeId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(employeeId) && isValidEmployeeProfile(incoming());
+      allow update: if isSignedIn() && isValidId(employeeId) && isValidEmployeeProfile(incoming()) &&
+        incoming().id == existing().id;
+      allow delete: if isSignedIn();
+    }
+  }
+}

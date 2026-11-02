@@ -333,6 +333,38 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
     setConfirmPasswordInput('');
   };
 
+  // Handle CSV Export with Filter
+  const handleExportFilter = (type: 'today' | 'monthly' | 'yearly' | 'all') => {
+    const today = new Date().toISOString().split('T')[0];
+    const currentMonth = today.substring(0, 7); // "YYYY-MM"
+    const currentYear = today.substring(0, 4); // "YYYY"
+
+    let targetRecords = records;
+    let label = 'all_records';
+
+    if (type === 'today') {
+      targetRecords = records.filter((r) => r.date === today);
+      label = `today_${today}`;
+    } else if (type === 'monthly') {
+      targetRecords = records.filter((r) => r.date.startsWith(currentMonth));
+      label = `monthly_${currentMonth}`;
+    } else if (type === 'yearly') {
+      targetRecords = records.filter((r) => r.date.startsWith(currentYear));
+      label = `yearly_${currentYear}`;
+    } else {
+      targetRecords = filteredRecords.length > 0 ? filteredRecords : records;
+      label = 'attendance_filtered';
+    }
+
+    if (targetRecords.length === 0) {
+      showToast('Export Empty', `No attendance records found for ${type} export.`, 'warning');
+      return;
+    }
+
+    exportAttendanceToCSV(targetRecords, `attendance_${label}`);
+    showToast('Export Success', `Exported ${targetRecords.length} records (${type}).`, 'success');
+  };
+
   // If NOT authenticated, show password gate
   if (!isAuthenticated) {
     return (
@@ -452,20 +484,50 @@ export const ManagerPortal: React.FC<ManagerPortalProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => exportAttendanceToCSV(filteredRecords, 'attendance_export')}
-              className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold text-xs rounded-lg flex items-center gap-1.5 transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Export CSV</span>
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 px-2 flex items-center gap-1">
+                <Download className="w-3 h-3" />
+                <span>Export:</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => handleExportFilter('today')}
+                className="px-2.5 py-1 text-xs font-semibold rounded bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900 transition-colors shadow-xs"
+                title="Export today's attendance"
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExportFilter('monthly')}
+                className="px-2.5 py-1 text-xs font-semibold rounded text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900 transition-colors"
+                title="Export this month's attendance"
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExportFilter('yearly')}
+                className="px-2.5 py-1 text-xs font-semibold rounded text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900 transition-colors"
+                title="Export this year's attendance"
+              >
+                Yearly
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExportFilter('all')}
+                className="px-2.5 py-1 text-xs font-semibold rounded text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-900 transition-colors"
+                title="Export all records"
+              >
+                All
+              </button>
+            </div>
 
             <button
               type="button"
               onClick={handleLogout}
-              className="px-3 py-2 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 font-semibold text-xs rounded-lg transition-colors border border-rose-200 dark:border-rose-900"
+              className="px-3.5 py-2 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/50 text-rose-700 dark:text-rose-300 font-semibold text-xs rounded-lg transition-colors border border-rose-200 dark:border-rose-900"
             >
               Lock Console
             </button>

@@ -10,14 +10,15 @@ import { PunchDesk } from './components/PunchDesk';
 import { ManagerPortal } from './components/ManagerPortal';
 import { ToastContainer } from './components/ToastContainer';
 import { AttendanceRecord, ToastMessage, WorkMode, EmployeeProfile } from './types/attendance';
-import { generateSeedAttendance, DEFAULT_EMPLOYEES } from './data/mockData';
+import { DEFAULT_EMPLOYEES } from './data/mockData';
+import { db, auth, handleFirestoreError, OperationType } from './services/firebase';
+import { collection, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 
-const STORAGE_KEY_RECORDS = 'attendpulse_records_v3';
 const STORAGE_KEY_OFFICE_START = 'attendpulse_office_start_v1';
 const STORAGE_KEY_THEME = 'attendpulse_theme_v1';
 const STORAGE_KEY_ADMIN_PASSWORD = 'attendpulse_admin_password_v1';
 const STORAGE_KEY_GRACE_MINS = 'attendpulse_grace_mins_v1';
-const STORAGE_KEY_EMPLOYEES = 'attendpulse_employees_v1';
 
 export default function App() {
   // Navigation tab (default to 'dashboard')
@@ -55,25 +56,79 @@ export default function App() {
     setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
   };
 
-  // Attendance Records (starts empty as requested by user - no dummy data)
-  const [records, setRecords] = useState<AttendanceRecord[]>(() => {
-    try {
-      // Clean up legacy storage keys
-      localStorage.removeItem('attendpulse_records_v1');
-      localStorage.removeItem('attendpulse_records_v2');
+  // Firebase Auth state & connection
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
-      const saved = localStorage.getItem(STORAGE_KEY_RECORDS);
-      if (saved) {
-        const parsed: AttendanceRecord[] = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setCurrentUser(user);
+      } else {
+        signInAnonymously(auth).catch((err) => {
+          console.warn('Anonymous sign-in failed:', err);
+        });
       }
-    } catch (e) {
-      console.warn('Failed to parse local records', e);
-    }
-    return generateSeedAttendance(); // Returns []
-  });
+    });
+    return () => unsubscribeAuth();
+  }, []);
+
+  // Attendance Records state (synchronized with Firestore)
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+
+  // Employees state (synchronized with Firestore)
+  const [employees, setEmployees] = useState<EmployeeProfile[]>(DEFAULT_EMPLOYEES);
+
+  // Sync Attendance Records from Firestore in real-time
+  useEffect(() => {
+    if (!currentUser) return;
+    const q = collection(db, 'attendanceRecords');
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const loadedRecords: AttendanceRecord[] = [];
+        snapshot.forEach((docSnap) => {
+          loadedRecords.push(docSnap.data() as AttendanceRecord);
+        });
+        loadedRecords.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        setRecords(loadedRecords);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'attendanceRecords');
+      }
+    );
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // Sync Employees from Firestore in real-time
+  useEffect(() => {
+    if (!currentUser) return;
+    const q = collection(db, 'employees');
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const loadedEmps: EmployeeProfile[] = [];
+        snapshot.forEach((docSnap) => {
+          loadedEmps.push(docSnap.data() as EmployeeProfile);
+        });
+        if (loadedEmps.length > 0) {
+          setEmployees(loadedEmps);
+        } else {
+          // Seed default employees to Firestore if empty
+          DEFAULT_EMPLOYEES.forEach(async (emp) => {
+            try {
+              await setDoc(doc(db, 'employees', emp.id), emp);
+            } catch (e) {
+              console.warn('Failed to seed default employee', e);
+            }
+          });
+        }
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'employees');
+      }
+    );
+    return () => unsubscribe();
+  }, [currentUser]);
 
   // Settings
   const [officeStartTime, setOfficeStartTime] = useState<string>(() => {
@@ -88,34 +143,9 @@ export default function App() {
     return Number(localStorage.getItem(STORAGE_KEY_GRACE_MINS)) || 0;
   });
 
-  const [employees, setEmployees] = useState<EmployeeProfile[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_EMPLOYEES);
-      if (saved) {
-        const parsed: EmployeeProfile[] = JSON.parse(saved);
-        if (parsed.length > 0) {
-          return parsed;
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to parse local employees', e);
-    }
-    return DEFAULT_EMPLOYEES;
-  });
-
-  // Save employees to LocalStorage on change
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_EMPLOYEES, JSON.stringify(employees));
-    } catch (e) {
-      console.warn('LocalStorage save employees failed', e);
-    }
-  }, [employees]);
-
   // Toasts
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  // Toast dispatcher
   const showToast = (
     title: string,
     message: string,
@@ -134,16 +164,6 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Save records to LocalStorage on change
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(records));
-    } catch (e) {
-      console.warn('LocalStorage save failed', e);
-    }
-  }, [records]);
-
-  // Save office start time
   const handleUpdateOfficeStartTime = (newTime: string) => {
     setOfficeStartTime(newTime);
     localStorage.setItem(STORAGE_KEY_OFFICE_START, newTime);
@@ -172,7 +192,6 @@ export default function App() {
       hour12: true,
     });
 
-    // Determine late status
     const [startH, startM] = officeStartTime.split(':').map(Number);
     const officeLimitMinutes = (startH || 9) * 60 + (startM || 30);
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -181,8 +200,9 @@ export default function App() {
     const lateMinutes = isLate ? currentMinutes - officeLimitMinutes : 0;
     const lateStatus = isLate ? 'Late' : 'On-Time';
 
+    const recordId = `rec-${todayStr}-${payload.employeeId}-${Date.now()}`;
     const newRecord: AttendanceRecord = {
-      id: `rec-${todayStr}-${payload.employeeId}-${Date.now()}`,
+      id: recordId,
       slNo: records.length + 1,
       date: todayStr,
       employeeId: payload.employeeId,
@@ -201,16 +221,18 @@ export default function App() {
       createdAt: now.getTime(),
     };
 
-    // Update state immediately
-    setRecords((prev) => [newRecord, ...prev]);
-
-    showToast(
-      'Check-In Recorded',
-      `${payload.employeeName} checked in at ${timeFormatted} (${lateStatus}${
-        lateMinutes > 0 ? ` +${lateMinutes}m` : ''
-      }) - ${payload.locationText}`,
-      isLate ? 'warning' : 'success'
-    );
+    try {
+      await setDoc(doc(db, 'attendanceRecords', recordId), newRecord);
+      showToast(
+        'Check-In Recorded',
+        `${payload.employeeName} checked in at ${timeFormatted} (${lateStatus}${
+          lateMinutes > 0 ? ` +${lateMinutes}m` : ''
+        }) - ${payload.locationText}`,
+        isLate ? 'warning' : 'success'
+      );
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `attendanceRecords/${recordId}`);
+    }
   };
 
   // Check-Out Handler
@@ -238,7 +260,6 @@ export default function App() {
       hour12: true,
     });
 
-    // Calculate total hours
     const inMs = existing.checkInTimestamp || now.getTime();
     const outMs = now.getTime();
     const diffMs = Math.max(0, outMs - inMs);
@@ -257,43 +278,72 @@ export default function App() {
         : `${existing.location} (Out: ${payload.locationText})`,
     };
 
-    setRecords((prev) => prev.map((r) => (r.id === existing.id ? updatedRecord : r)));
-
-    showToast(
-      'Check-Out Recorded',
-      `${payload.employeeName} checked out at ${timeFormatted}. Total duration: ${totalHoursStr}.`,
-      'success'
-    );
+    try {
+      await setDoc(doc(db, 'attendanceRecords', existing.id), updatedRecord);
+      showToast(
+        'Check-Out Recorded',
+        `${payload.employeeName} checked out at ${timeFormatted}. Total duration: ${totalHoursStr}.`,
+        'success'
+      );
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `attendanceRecords/${existing.id}`);
+    }
   };
 
   // Manager actions
-  const handleAddManualRecord = (rec: AttendanceRecord) => {
-    setRecords((prev) => [rec, ...prev]);
+  const handleAddManualRecord = async (rec: AttendanceRecord) => {
+    try {
+      await setDoc(doc(db, 'attendanceRecords', rec.id), rec);
+      showToast('Record Added', `Manual attendance added for ${rec.employeeName}.`, 'success');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `attendanceRecords/${rec.id}`);
+    }
   };
 
-  const handleUpdateRecord = (updatedRecord: AttendanceRecord) => {
-    setRecords((prev) => prev.map((r) => (r.id === updatedRecord.id ? updatedRecord : r)));
-    showToast('Record Updated', `Attendance for ${updatedRecord.employeeName} on ${updatedRecord.date} updated.`, 'success');
+  const handleUpdateRecord = async (updatedRecord: AttendanceRecord) => {
+    try {
+      await setDoc(doc(db, 'attendanceRecords', updatedRecord.id), updatedRecord);
+      showToast('Record Updated', `Attendance for ${updatedRecord.employeeName} on ${updatedRecord.date} updated.`, 'success');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `attendanceRecords/${updatedRecord.id}`);
+    }
   };
 
-  const handleDeleteRecord = (id: string) => {
-    setRecords((prev) => prev.filter((r) => r.id !== id));
+  const handleDeleteRecord = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'attendanceRecords', id));
+      showToast('Record Deleted', 'Attendance record removed.', 'info');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `attendanceRecords/${id}`);
+    }
   };
 
-  const handleAddEmployee = (emp: EmployeeProfile) => {
-    setEmployees((prev) => [...prev, emp]);
-    showToast('Employee Added', `${emp.name} added to team roster.`, 'success');
+  const handleAddEmployee = async (emp: EmployeeProfile) => {
+    try {
+      await setDoc(doc(db, 'employees', emp.id), emp);
+      showToast('Employee Added', `${emp.name} added to team roster.`, 'success');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `employees/${emp.id}`);
+    }
   };
 
-  const handleUpdateEmployee = (emp: EmployeeProfile) => {
-    setEmployees((prev) => prev.map((e) => (e.id === emp.id ? emp : e)));
-    showToast('Employee Updated', `Profile for ${emp.name} updated.`, 'success');
+  const handleUpdateEmployee = async (emp: EmployeeProfile) => {
+    try {
+      await setDoc(doc(db, 'employees', emp.id), emp);
+      showToast('Employee Updated', `Profile for ${emp.name} updated.`, 'success');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `employees/${emp.id}`);
+    }
   };
 
-  const handleDeleteEmployee = (id: string) => {
+  const handleDeleteEmployee = async (id: string) => {
     const target = employees.find((e) => e.id === id);
-    setEmployees((prev) => prev.filter((e) => e.id !== id));
-    showToast('Employee Removed', `${target?.name || id} removed from directory.`, 'info');
+    try {
+      await deleteDoc(doc(db, 'employees', id));
+      showToast('Employee Removed', `${target?.name || id} removed from directory.`, 'info');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `employees/${id}`);
+    }
   };
 
   const handleUpdateAdminPassword = (newPass: string) => {
